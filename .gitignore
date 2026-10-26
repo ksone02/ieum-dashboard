@@ -1,0 +1,14 @@
+# 대회 자료에서 만든 입력과 로컬 자료는 올리지 않음
+/data/
+# 빌드·환경
+/dashboard/node_modules/
+/dashboard/dist/
+*.tsbuildinfo
+__pycache__/
+.pytest_cache/
+.analysis-venv/
+.venv/
+.vercel/
+.DS_Store
+# 재배포 범위가 불분명한 글꼴
+/dashboard/public/fonts/Satoshi-*.woff2

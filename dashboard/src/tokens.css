@@ -1,0 +1,20 @@
+/* Primitive → semantic → component. See DESIGN_SYSTEM.md. */
+@font-face{font-family:Pretendard;src:url('/fonts/PretendardVariable.woff2') format('woff2');font-weight:45 920;font-display:swap;font-style:normal}
+:root{
+  --gray-0:#fff;--gray-50:#f7f9fc;--gray-100:#f2f4f7;--gray-200:#e5e8eb;--gray-300:#d1d6db;--gray-500:#5e6a7b;--gray-600:#4e5968;--gray-800:#333d4b;--gray-950:#17212b;
+  --blue-50:#edf4ff;--blue-100:#dceaff;--blue-500:#3182f6;--blue-600:#216be8;--blue-700:#1858c5;
+  --green-50:#e6f7f0;--green-700:#00765e;--red-50:#fff0f1;--red-700:#c43d4b;--amber-50:#fff4d8;--amber-700:#946200;--purple-50:#f3edff;--purple-700:#7446c8;
+  --surface-canvas:var(--gray-50);--surface-panel:var(--gray-0);--surface-inset:var(--gray-100);--surface-selected:var(--blue-50);--surface-floating:rgba(255,255,255,.96);
+  --text-primary:var(--gray-950);--text-secondary:var(--gray-600);--text-tertiary:var(--gray-500);--text-inverse:var(--gray-0);
+  --action-primary:var(--blue-600);--action-hover:var(--blue-700);--action-secondary:var(--blue-50);--border-subtle:var(--gray-200);--border-strong:var(--gray-300);--focus-ring:var(--blue-500);
+  --status-positive:var(--green-700);--status-positive-bg:var(--green-50);--status-negative:var(--red-700);--status-negative-bg:var(--red-50);--status-review:var(--purple-700);--status-review-bg:var(--purple-50);--status-unknown:#566574;--status-unknown-bg:#eef1f5;--status-outreach:var(--amber-700);--status-outreach-bg:var(--amber-50);
+  --map-boundary:#6483a7;--map-selected:var(--blue-600);--map-site:var(--blue-600);--map-area:#98b5db;
+  --space-1:4px;--space-2:8px;--space-3:12px;--space-4:16px;--space-5:20px;--space-6:24px;--space-8:32px;
+  --radius-input:6px;--radius-control:8px;--radius-panel:12px;--radius-feature:16px;
+  --shadow-control:0 2px 6px #17212b0a;--shadow-floating:0 4px 20px #17212b12,0 0 0 1px #17212b05;--shadow-overlay:0 20px 70px #17212b26;
+  --z-map:0;--z-controls:10;--z-panel:20;--z-popover:40;--z-sheet:50;--z-tooltip:60;
+  --font-family:Pretendard,-apple-system,BlinkMacSystemFont,sans-serif;--font-display:28px;--font-title:22px;--font-section:16px;--font-body:15px;--font-label:14px;--font-caption:13px;
+  --duration-fast:120ms;--duration-normal:180ms;
+  --button-bg:var(--action-primary);--button-fg:var(--text-inverse);--input-bg:var(--surface-panel);--input-border:var(--border-subtle);--panel-bg:var(--surface-panel);--panel-border:var(--border-subtle);
+  --background:var(--surface-canvas);--foreground:var(--text-primary);--card:var(--surface-panel);--card-foreground:var(--text-primary);--popover:var(--surface-panel);--popover-foreground:var(--text-primary);--primary:var(--action-primary);--primary-foreground:var(--text-inverse);--secondary:var(--action-secondary);--secondary-foreground:var(--blue-700);--muted:var(--surface-inset);--muted-foreground:var(--text-tertiary);--accent:var(--surface-selected);--accent-foreground:var(--blue-700);--destructive:var(--status-negative);--border:var(--border-subtle);--input:var(--input-border);--ring:var(--focus-ring);--radius:.5rem;
+}

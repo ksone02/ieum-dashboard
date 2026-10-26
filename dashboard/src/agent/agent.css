@@ -1,0 +1,292 @@
+/* 지도 중심 에이전트 화면. 색·간격은 tokens.css의 토큰을 씀. 상태 색은 4가지 의미에만 씀. */
+.agent-app{
+  --tone-ok:var(--green-700);--tone-ok-bg:var(--green-50);
+  --tone-warn:#b25e00;--tone-warn-bg:#fff3e0;
+  --tone-bad:var(--red-700);--tone-bad-bg:var(--red-50);
+  --tone-muted:#566574;--tone-muted-bg:#eef1f5;
+  --float-bg:rgba(255,255,255,.97);--float-radius:18px;--float-shadow:0 8px 30px #17212b14,0 0 0 1px #17212b0d;
+  position:fixed;inset:0;font-family:var(--font-family);color:var(--text-primary);background:#eef2f6;overflow:hidden;
+  letter-spacing:-.01em;
+}
+.agent-map{position:absolute;inset:0;z-index:0;background:#eef2f6}
+.agent-map .leaflet-tile-pane{filter:grayscale(1) contrast(.85) brightness(1.08) opacity(.55)}
+.agent-map .leaflet-control-attribution{font:11px var(--font-family);background:#ffffffd9}
+.agent-map .leaflet-control-zoom{border:0;box-shadow:var(--float-shadow);border-radius:12px;overflow:hidden;margin:0 16px 16px 0}
+.with-panel .agent-map .leaflet-control-zoom{margin-right:460px}
+.agent-empty{position:fixed;inset:0;display:grid;place-items:center;font:500 16px var(--font-family);color:var(--text-secondary)}
+
+/* 상단 바: 지도 위에 떠 있는 얇은 띠 */
+.topbar{position:absolute;top:16px;left:16px;right:16px;z-index:20;display:flex;align-items:center;gap:16px;pointer-events:none}
+.topbar>*{pointer-events:auto}
+.brand{display:flex;align-items:center;gap:10px;background:var(--float-bg);padding:8px 16px 8px 8px;border-radius:14px;box-shadow:var(--float-shadow)}
+.brand .logo{width:32px;height:32px;border-radius:9px;display:block}
+.brand strong{display:block;font-size:16px;font-weight:750;line-height:1.2}
+.brand small{display:block;font-size:12px;color:var(--text-tertiary)}
+.seg{margin:0 auto;display:flex;background:var(--float-bg);padding:4px;border-radius:12px;box-shadow:var(--float-shadow)}
+.seg button{border:0;background:none;padding:8px 18px;border-radius:9px;font:600 14px var(--font-family);color:var(--text-secondary);cursor:pointer;transition:background var(--duration-fast)}
+.seg button.on{background:var(--gray-950);color:#fff}
+.topbar>[data-slot=button]{background:var(--float-bg);box-shadow:var(--float-shadow);border-radius:12px;width:44px;height:44px}
+
+/* 브리핑: 작게 유지해서 지도가 주인공이 되게 함 */
+.brief{position:absolute;top:80px;left:16px;z-index:15;width:330px;background:var(--float-bg);border-radius:var(--float-radius);box-shadow:var(--float-shadow);padding:18px;backdrop-filter:blur(8px)}
+.agent-tag{display:flex;align-items:center;gap:5px;font-size:12px;font-weight:700;color:var(--blue-600);margin:0 0 6px}
+.brief h1{font-size:18px;font-weight:750;line-height:1.4;margin:0}
+.brief-sub{font-size:13px;color:var(--text-tertiary);margin:4px 0 14px}
+.brief-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+.stat{border-radius:12px;padding:10px 8px;text-align:center;background:var(--tone-muted-bg)}
+.stat b{display:block;font-size:22px;font-weight:800;line-height:1.1}
+.stat span{font-size:12px;font-weight:600}
+.stat.tone-bad{background:var(--tone-bad-bg);color:var(--tone-bad)}.stat.tone-warn{background:var(--tone-warn-bg);color:var(--tone-warn)}.stat.tone-muted{color:var(--tone-muted)}
+.brief-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.brief-list button{width:100%;display:flex;gap:10px;align-items:flex-start;text-align:left;border:0;background:none;padding:9px 8px;border-radius:10px;cursor:pointer;font-family:inherit}
+.brief-list button:hover{background:var(--gray-100)}.brief-list button.on{background:var(--blue-50)}
+.bl-text b{display:block;font-size:14px;font-weight:650;line-height:1.4}
+.bl-text small{display:block;font-size:12.5px;color:var(--text-secondary);line-height:1.5}
+.brief-cta[data-slot=button]{width:100%;margin-top:12px;height:44px;border-radius:12px;font-size:15px;font-weight:650}
+.dot{flex:none;width:10px;height:10px;border-radius:50%;margin-top:5px;display:inline-block}
+.dot-bad{background:var(--tone-bad)}.dot-warn{background:var(--tone-warn)}.dot-muted{background:#93a1b0}.dot-ok{background:var(--tone-ok)}
+
+.hint{position:absolute;bottom:56px;left:50%;transform:translateX(-50%);z-index:15;margin:0;background:var(--gray-950);color:#fff;font-size:14px;font-weight:600;padding:11px 18px;border-radius:999px;box-shadow:var(--float-shadow);white-space:nowrap}
+.legend{position:absolute;left:16px;bottom:16px;z-index:15;display:flex;gap:12px;background:var(--float-bg);padding:7px 12px;border-radius:10px;box-shadow:var(--float-shadow);font-size:12px;color:var(--text-secondary)}
+.legend span{display:flex;align-items:center;gap:5px}.legend .dot{margin:0;width:8px;height:8px}
+.legend .x{font-style:normal;color:#9aa6b2;font-weight:800}
+
+/* 지도 위 인물 핀 */
+.pin-wrap{background:none;border:0}
+.pin{position:absolute;transform:translate(-50%,-100%);display:flex;align-items:center;gap:8px;background:#fff;border:0;border-radius:999px;padding:5px 14px 5px 5px;box-shadow:0 4px 14px #17212b26,0 0 0 1px #17212b10;cursor:pointer;font-family:var(--font-family);white-space:nowrap;transition:transform var(--duration-fast)}
+.pin::after{content:'';position:absolute;left:50%;bottom:-6px;transform:translateX(-50%);border:6px solid transparent;border-top-color:#fff;border-bottom:0}
+.pin:hover{transform:translate(-50%,-100%) scale(1.04)}
+.pin-code{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:12px}
+.pin-bad .pin-code{background:var(--tone-bad)}.pin-warn .pin-code{background:var(--tone-warn)}.pin-muted .pin-code{background:#7d8b9a}.pin-ok .pin-code{background:var(--tone-ok)}
+.pin-text b{display:block;font-size:13px;font-weight:700;color:var(--text-primary);line-height:1.3;text-align:left}
+.pin-text small{display:block;font-size:11px;color:var(--text-tertiary);text-align:left}
+.pin.is-active{outline:3px solid var(--blue-600);outline-offset:2px}
+.site-wrap{background:none;border:0}
+.site{width:30px;height:30px;border-radius:50%;background:#5f6f82;border:3px solid #fff;box-shadow:0 3px 10px #17212b40;display:grid;place-items:center;color:#fff;font:800 13px var(--font-family)}
+.site-fit{background:var(--tone-ok)}
+.site-no{width:24px;height:24px;background:#fff;border:2px solid #c9d1da;color:#9aa6b2;font-size:11px;box-shadow:0 2px 6px #17212b26}
+
+/* 오른쪽 분석 창: 1→4 단계 흐름 */
+.panel{position:absolute;top:80px;right:16px;bottom:16px;z-index:18;width:430px;display:flex;flex-direction:column;background:#fff;border-radius:var(--float-radius);box-shadow:var(--float-shadow);overflow:hidden}
+.panel-head{display:flex;gap:12px;align-items:flex-start;padding:20px 16px 14px 20px;border-bottom:1px solid var(--border-subtle)}
+.panel-head>div{flex:1;min-width:0}
+.panel-head h2{font-size:19px;font-weight:750;margin:0;line-height:1.4}
+.panel-head p{font-size:13px;color:var(--text-tertiary);margin:2px 0 0}
+.avatar{flex:none;width:40px;height:40px;border-radius:12px;background:var(--gray-950);color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px}
+.panel-body{flex:1;overflow:auto;padding:4px 20px 20px}
+.panel-foot{padding:10px 20px;font-size:11.5px;color:var(--text-tertiary);border-top:1px solid var(--border-subtle);background:var(--gray-50)}
+.step{padding:14px 0 2px}
+.step+.step{border-top:1px solid var(--gray-100)}
+.step h3{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:750;margin:0 0 10px}
+.step h3 i{font-style:normal;width:22px;height:22px;border-radius:50%;background:var(--blue-600);color:#fff;font-size:12px;display:grid;place-items:center}
+.evidence{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:7px}
+.evidence li{font-size:14px;line-height:1.55;display:flex;gap:8px;align-items:baseline}
+.src{flex:none;font-size:11px;font-weight:750;padding:2px 7px;border-radius:6px;background:var(--gray-100);color:var(--gray-800)}
+.src-flow{background:#e8f1ff;color:#1858c5}.src-card{background:#f3edff;color:#7446c8}.src-model{background:#e6f7f0;color:#00765e}.src-etc{background:#eef1f5;color:#566574}
+.assume{font-size:12.5px;color:var(--text-tertiary);margin:10px 0 0;line-height:1.6}
+.fields{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.field-row{display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--border-subtle);background:#fff;border-radius:10px;padding:9px 10px;font:600 13.5px var(--font-family);cursor:pointer;color:var(--text-primary)}
+.field-row.on{border-color:var(--blue-600);box-shadow:0 0 0 1px var(--blue-600);background:var(--blue-50)}
+.chip{font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+.chip-ok{background:var(--tone-ok-bg);color:var(--tone-ok)}.chip-warn{background:var(--tone-warn-bg);color:var(--tone-warn)}
+.chip-bad{background:var(--tone-bad-bg);color:var(--tone-bad)}.chip-muted{background:var(--tone-muted-bg);color:var(--tone-muted)}
+.agent-card{padding:2px 0 0}
+.agent-card strong{display:block;font-size:16px;font-weight:750;line-height:1.45;margin-bottom:4px}
+.agent-card p{font-size:14px;line-height:1.65;margin:0;color:var(--text-secondary)}
+.agent-card .agent-action{color:var(--text-primary);font-weight:600;margin-top:8px}
+.agent-card .reasons{font-size:12.5px;margin-top:10px;color:var(--text-tertiary)}
+.recs{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.recs li{display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:12px;border:1px solid var(--border-subtle)}
+.recs li.fit{border-color:#b9e3d3;background:#f6fcf9}
+.recs .rank{flex:none;width:26px;height:26px;border-radius:50%;background:#5f6f82;color:#fff;font-size:12.5px;font-weight:800;display:grid;place-items:center}
+.recs li.fit .rank{background:var(--tone-ok)}
+.recs li>div{flex:1;min-width:0}
+.recs strong{display:block;font-size:14.5px;font-weight:650;line-height:1.45}
+.recs p{display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 0;font-size:12.5px;color:var(--text-secondary)}
+.recs p span{display:inline-flex;align-items:center;gap:3px}
+.recs .mode{font-weight:650;color:var(--text-primary)}
+.recs a{color:var(--text-tertiary);padding:2px}.recs a:hover{color:var(--blue-600)}
+.dim{color:var(--text-tertiary)!important;font-size:12.5px}
+.whatif{margin-top:10px;padding:12px 14px;border-radius:12px;background:var(--blue-50)}
+.whatif p{margin:0;font-size:14px;line-height:1.55}.whatif p+p{margin-top:3px}
+.draft-btn[data-slot=button]{width:100%;margin-top:14px;height:46px;border-radius:12px;font-size:15px;font-weight:650}
+
+.agent-dialog{font-family:var(--font-family);border-radius:18px!important}
+.set-row{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:12px 0;border-bottom:1px solid var(--gray-100);cursor:pointer}
+.set-row b{display:block;font-size:15px;font-weight:650}.set-row small{display:block;font-size:12.5px;color:var(--text-tertiary)}
+.set-note{font-size:13px;line-height:1.65;color:var(--text-secondary);background:var(--gray-50);border-radius:12px;padding:12px 14px}
+.set-note b{color:var(--text-primary)}.set-note p{margin:4px 0 0}
+.draft{white-space:pre-wrap;font:14px/1.7 var(--font-family);background:var(--gray-50);border-radius:12px;padding:16px;max-height:50vh;overflow:auto;margin:0}
+
+@media (max-width:900px){
+  .brief{width:auto;right:16px;top:76px;padding:14px}
+  .brief-list,.brief-sub{display:none}
+  .with-panel .brief{display:none}
+  .panel{top:auto;left:8px;right:8px;bottom:8px;width:auto;max-height:62%}
+  .with-panel .agent-map .leaflet-control-zoom{margin-right:16px}
+  .pin{padding:4px}.pin:not(.is-active) .pin-text{display:none}.pin.is-active{padding-right:12px}
+  .brand small{display:none}.legend{display:none}.hint{bottom:24px;white-space:normal;width:calc(100% - 32px);text-align:center}
+}
+@media (prefers-reduced-motion:reduce){.pin,.seg button{transition:none}}
+
+.with-panel .brief .brief-sub,.with-panel .brief .brief-stats,.with-panel .brief .bl-text small{display:none}
+.with-panel .brief{width:320px;padding:14px}
+.with-panel .brief h1{font-size:15px;margin-bottom:8px}
+
+/* FontShare Satoshi: 숫자만 씀(통계·순위). 한글은 Pretendard. */
+@font-face{font-family:Satoshi;src:url('/fonts/Satoshi-500.woff2') format('woff2');font-weight:500;font-display:swap}
+@font-face{font-family:Satoshi;src:url('/fonts/Satoshi-700.woff2') format('woff2');font-weight:700;font-display:swap}
+@font-face{font-family:Satoshi;src:url('/fonts/Satoshi-900.woff2') format('woff2');font-weight:900;font-display:swap}
+.num{font-family:Satoshi,var(--font-family);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.stat b.num{font-size:26px;font-weight:900}
+.pin-code,.avatar{font-family:Satoshi,var(--font-family);letter-spacing:-.01em}
+
+.brief-list button{align-items:center}
+.brief-list .dot{margin-top:0}
+.bl-text{flex:1;min-width:0}
+.bl-go{color:#b0b8c1;flex:none}
+.brief-list button:hover .bl-go{color:var(--text-secondary)}
+.legend .x{display:inline-grid;place-items:center;width:14px;height:14px;border-radius:50%;border:1.5px solid #c9d1da;color:#9aa6b2}
+.site-no svg{display:block}
+.draft-foot{gap:8px}
+.draft-foot [data-slot=button]{height:44px;border-radius:12px;font-size:15px;font-weight:650;flex:1}
+.agent-dialog [data-slot=dialog-footer] [data-slot=button]{height:44px;border-radius:12px;font-weight:650}
+.agent-dialog [data-slot=dialog-title]{font-size:20px;font-weight:750}
+.agent-empty{flex-direction:column;gap:6px;display:flex;align-items:center;justify-content:center}
+.agent-empty b{font-size:18px;color:var(--text-primary)}
+
+/* 점검 화면 (Aceternity Multi Step Loader 구성) */
+.scan{position:fixed;inset:0;display:grid;place-items:center;background:#f2f4f6;font-family:var(--font-family)}
+.scan-card{background:#fff;border-radius:24px;padding:32px 36px;box-shadow:var(--float-shadow,0 8px 30px #17212b14);min-width:380px}
+.scan-title{font-size:20px;font-weight:750;margin:0 0 20px;color:var(--text-primary)}
+.scan ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:14px}
+.scan li{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:550;color:var(--text-primary)}
+.scan .ok{color:var(--green-700)}
+.scan .spin{color:var(--blue-600);animation:spin 1s linear infinite}
+.scan .todo{width:18px;height:18px;border-radius:50%;border:2px solid #d1d6db}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.scan .spin{animation:none}}
+
+/* 동별 배지: 숫자 = 그 동의 페르소나 수, 색 = 가장 심각한 상태 */
+.dong-badge{position:absolute;transform:translate(-50%,-50%);display:flex;align-items:center;gap:6px;border:0;border-radius:999px;padding:4px 10px 4px 4px;background:#fff;box-shadow:0 3px 10px #17212b2e,0 0 0 1px #17212b10;cursor:pointer;font-family:var(--font-family);white-space:nowrap}
+.dong-badge b{min-width:24px;height:24px;padding:0 6px;border-radius:999px;display:grid;place-items:center;color:#fff;font-size:13px;font-weight:900}
+.dong-badge span{font-size:12px;font-weight:650;color:var(--text-primary)}
+.dong-badge.tone-bad b{background:var(--tone-bad)}.dong-badge.tone-warn b{background:var(--tone-warn)}.dong-badge.tone-muted b{background:#7d8b9a}.dong-badge.tone-ok b{background:var(--tone-ok)}
+.dong-badge.is-active{outline:3px solid var(--blue-600);outline-offset:2px}
+.dong-badge:hover{box-shadow:0 5px 14px #17212b3d,0 0 0 1px #17212b14}
+.brief-tabs{display:flex;gap:4px;background:var(--gray-100);padding:3px;border-radius:10px;margin:0 0 8px}
+.brief-tabs button{flex:1;border:0;background:none;border-radius:8px;padding:7px 0;font:600 13px var(--font-family);color:var(--text-secondary);cursor:pointer}
+.brief-tabs button.on{background:#fff;color:var(--text-primary);box-shadow:0 1px 3px #17212b1a}
+.brief-list.scroll{max-height:min(38vh,320px);overflow:auto;margin-right:-6px;padding-right:6px}
+.back{display:inline-flex;align-items:center;gap:2px;border:0;background:none;padding:0;margin:0 0 8px;font:600 13px var(--font-family);color:var(--text-secondary);cursor:pointer}
+.back:hover{color:var(--text-primary)}
+.with-panel .brief .brief-tabs{display:none}
+.with-panel .brief .brief-list.scroll{max-height:42vh}
+@media (max-width:900px){.dong-badge span{display:none}.dong-badge{padding:3px}}
+
+@media (max-width:900px){.brief.dong-view .brief-list{display:flex;max-height:34vh;overflow:auto}.with-panel .brief.dong-view{display:none}}
+
+/* 정책 추천 */
+.rec-count{flex:none;min-width:42px;font-size:20px;font-weight:900;color:var(--blue-700);text-align:right;line-height:1.1}
+.rec-count small{font-family:var(--font-family);font-size:11px;font-weight:600;color:var(--text-tertiary);margin-left:1px}
+.brief-list button .rec-count{margin-right:2px}
+.rec-kind{flex:none;font-size:11.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--gray-100);color:var(--gray-800);white-space:nowrap}
+.kind-condition{background:var(--blue-50);color:var(--blue-700)}.kind-new{background:#fff3e0;color:#b25e00}.kind-notice{background:var(--gray-100);color:var(--gray-800)}.kind-round{background:var(--gray-100);color:var(--text-tertiary)}
+.panel-head .rec-kind{margin-top:4px}
+.rec-hero{display:flex;align-items:baseline;gap:6px}
+.rec-hero b{font-size:40px;font-weight:900;color:var(--blue-700);line-height:1}
+.rec-hero span{font-size:15px;font-weight:600}
+.rec-why{font-size:15px;line-height:1.6;margin:10px 0 0;color:var(--text-primary)}
+.rec-link{display:inline-flex;align-items:center;gap:3px;margin-top:10px;font-size:13.5px;font-weight:600;color:var(--blue-700);text-decoration:none}
+.examples{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.examples li{position:relative;padding:12px 36px 12px 14px;border-radius:12px;background:var(--gray-50)}
+.examples strong{display:block;font-size:14.5px;font-weight:650}
+.examples p{margin:3px 0 0;font-size:13px;color:var(--text-secondary)}
+.examples a{position:absolute;top:12px;right:12px;color:var(--text-tertiary)}
+.dong-bars{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.dong-bars li{display:grid;grid-template-columns:68px 1fr 28px;align-items:center;gap:8px;font-size:13px}
+.dong-bars i{display:block;height:8px;border-radius:4px;background:var(--blue-500)}
+.dong-bars b{text-align:right;font-size:13px}
+.who{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.who button{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;text-align:left;padding:7px 4px;border-radius:8px;font:500 13.5px var(--font-family);color:var(--text-primary);cursor:pointer}
+.who button:hover{background:var(--gray-100)}.who .dot{margin:0}
+.mine{margin-top:14px;display:flex;flex-direction:column;gap:6px}
+.mine-title{font-size:13px;font-weight:700;color:var(--text-secondary);margin:0 0 2px}
+.mine button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:1px solid var(--border-subtle);background:#fff;border-radius:12px;padding:11px 12px;cursor:pointer;font-family:var(--font-family);color:var(--text-primary)}
+.mine button:hover{border-color:var(--blue-500)}
+.mine-text{flex:1;font-size:14px;font-weight:600;line-height:1.45}
+.mine-text small{display:block;font-size:12px;font-weight:500;color:var(--text-tertiary)}
+.dong-badge.tone-rec b{background:var(--blue-600)}
+.brief-tabs button{font-size:12.5px}
+.dim{font-size:12.5px;color:var(--text-tertiary)}
+
+/* 위험 단계 1 긴급 ~ 4 관찰. 색은 단계에만 씀 */
+.agent-app{--lv1:#c43d4b;--lv1-bg:#fdecee;--lv2:#b25e00;--lv2-bg:#fff3e0;--lv3:#7a5c00;--lv3-bg:#fdf3cf;--lv4:#566574;--lv4-bg:#eef1f5}
+.lv-chip{flex:none;font-size:11.5px;font-weight:750;padding:3px 8px;border-radius:999px;white-space:nowrap}
+.lv-chip.lv-1,.stat.lv-1{background:var(--lv1-bg);color:var(--lv1)}.lv-chip.lv-2,.stat.lv-2{background:var(--lv2-bg);color:var(--lv2)}
+.lv-chip.lv-3,.stat.lv-3{background:var(--lv3-bg);color:var(--lv3)}.lv-chip.lv-4,.stat.lv-4{background:var(--lv4-bg);color:var(--lv4)}
+.lvd-1{background:var(--lv1)}.lvd-2{background:var(--lv2)}.lvd-3{background:#c9a227}.lvd-4{background:#93a1b0}
+.brief-stats.four{grid-template-columns:repeat(4,1fr);gap:5px}
+.brief-stats.four .stat{padding:9px 4px}
+.brief-stats.four .stat b.num{font-size:22px}
+.brief-stats.four .stat span{font-size:11.5px}
+.checked{font-size:11.5px;color:var(--text-tertiary);margin:-4px 0 12px;line-height:1.5}
+.pin.lv-1 .pin-code{background:var(--lv1)}.pin.lv-2 .pin-code{background:var(--lv2)}.pin.lv-3 .pin-code{background:#8f6c00}.pin.lv-4 .pin-code{background:#7d8b9a}
+.dong-badge.lv-1 b{background:var(--lv1)}.dong-badge.lv-2 b{background:var(--lv2)}.dong-badge.lv-3 b{background:#8f6c00}.dong-badge.lv-4 b{background:#7d8b9a}
+.level-box{margin:16px 0 4px;padding:16px;border-radius:14px;background:var(--gray-50)}
+.level-head{display:flex;align-items:baseline;gap:8px;margin-bottom:10px}
+.level-head b{font-size:22px;font-weight:800}
+.level-head span{font-size:15px;font-weight:700}
+.level-box.lv-1 .level-head{color:var(--lv1)}.level-box.lv-2 .level-head{color:var(--lv2)}.level-box.lv-3 .level-head{color:var(--lv3)}.level-box.lv-4 .level-head{color:var(--lv4)}
+.level-why{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.level-why li{font-size:14px;line-height:1.55;display:grid;grid-template-columns:84px 1fr;gap:8px}
+.level-why span{font-size:12.5px;font-weight:650;color:var(--text-tertiary);padding-top:1px}
+.level-do-title{font-size:12.5px;font-weight:700;color:var(--text-secondary);margin:14px 0 6px}
+.level-do{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:4px;font-size:14px;line-height:1.55;font-weight:600}
+.trace{margin-top:12px;border-top:1px solid var(--border-subtle);padding-top:10px}
+.trace-title{display:flex;align-items:center;gap:6px;margin:0;font-size:13px;font-weight:650;color:var(--text-secondary)}
+.trace ol{margin:10px 0 0;padding-left:20px;display:flex;flex-direction:column;gap:6px;font-size:13px;line-height:1.6;color:var(--text-secondary)}
+.trace li::marker{color:var(--text-tertiary);font-family:Satoshi,var(--font-family);font-weight:700}
+
+/* 한국어는 어절 단위로 줄바꿈해서 '요'만 혼자 떨어지지 않게 */
+.agent-app{word-break:keep-all;overflow-wrap:anywhere}
+.agent-app small,.agent-app p{text-wrap:pretty}
+/* 에이전트가 한 일: 브리핑 맨 위 작업 기록 */
+.worklog{margin:12px 0 4px;padding:12px 14px;border-radius:14px;background:var(--blue-50)}
+.worklog summary{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:700;color:var(--blue-600, #1858c5);cursor:pointer;list-style:none}
+.worklog summary::-webkit-details-marker{display:none}
+.worklog summary .chev{margin-left:auto;transition:transform .2s}
+.worklog[open] summary .chev{transform:rotate(180deg)}
+.worklog ol{margin:10px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:7px}
+.worklog li{display:flex;gap:8px;align-items:flex-start;font-size:13px;line-height:1.5;color:var(--text-secondary)}
+.worklog li svg{flex:none;margin-top:2px;color:#1858c5}
+.worklog li b{color:var(--text-primary);font-weight:700}
+.ended{margin:10px 2px 0;font-size:12.5px;line-height:1.5;color:var(--text-tertiary)}
+.virtual{display:inline-block;margin-left:auto;padding:2px 7px;border-radius:999px;background:#eef1f5;color:#566574;font-size:11.5px;font-weight:650;vertical-align:3px}
+/* 범례가 브리핑 아래쪽 버튼을 가리지 않게 브리핑 오른쪽으로 옮김 */
+.legend{left:362px;white-space:nowrap}
+/* 분석 창이 열린 좁은 화면에서는 범례가 들어갈 자리가 없어서 숨김(색 뜻은 분석 창 단계 표시로 보임) */
+@media (max-width:1320px){.with-panel .legend{display:none}}
+/* 동 화면: 같은 유형을 묶고 사람은 칩으로 */
+.brief-list.groups{display:flex;flex-direction:column;gap:14px;margin-top:6px}
+.g-title{margin:0 0 7px;font-size:14px;font-weight:700;line-height:1.4}
+.g-chips{display:flex;flex-wrap:wrap;gap:6px}
+.brief-list .g-chip{width:auto;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--border-subtle);background:#fff;font-size:13px;font-weight:600;color:var(--text-primary)}
+.brief-list .g-chip .dot{width:7px;height:7px;margin:0}
+.brief-list .g-chip:hover{background:var(--gray-100)}
+.brief-list .g-chip.on{border-color:#216be8;background:var(--blue-50)}
+/* 정책 추천: 지역 전체 조건 바꾸기 */
+.whatif-all{margin:4px 0 8px;padding:12px 14px;border-radius:12px;background:var(--blue-50);font-size:13px;line-height:1.55}
+.whatif-all p{margin:0}.whatif-all p+p{margin-top:4px}
+.whatif-title{font-weight:700;color:#1858c5;margin-bottom:6px!important}
+.g-gap{margin:-3px 0 8px;font-size:12.5px;color:var(--text-secondary)}
+/* 브리핑이 화면 아래로 넘치지 않게: 높이를 화면에 맞추고 창 전체를 한 번에 스크롤(안쪽 목록 따로 스크롤하면 휠이 엇갈림) */
+.brief{max-height:calc(100dvh - 96px);overflow:auto;overscroll-behavior:contain}
+.brief .brief-list.scroll,.brief .brief-list.groups,.with-panel .brief .brief-list.scroll{max-height:none;overflow:visible}
+.brief .brief-cta[data-slot=button]{position:sticky;bottom:0;box-shadow:0 -10px 16px #fff,0 18px 0 #fff}
+@media (min-width:901px){.hint{left:calc(362px + (100% - 362px) / 2)}}
+.src-warn{background:#fdf3cf;color:#7a5c00}
+/* 동 목록 줄의 단계 분포 막대: 사람 수만큼 칸이 늘어남 */
+.lv-bar{display:flex;gap:2px;height:6px;margin-top:6px;max-width:180px}
+.lv-bar i{flex-basis:0;border-radius:3px}
+.whatif-all button.link{border:0;background:none;padding:0;font:inherit;font-weight:650;color:#1858c5;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
