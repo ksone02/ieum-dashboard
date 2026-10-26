@@ -1,12 +1,33 @@
 """06 페이지 '반드시 구현할 규칙'과 09 페이지 독립 기대 판정(EX-01~04)을 확인한다."""
+
 import pandas as pd
+import pytest
 
-import policy_gap_engine as e
+from ieum import engine as e
+from ieum.paths import POLICY
 
-BASE = dict(id='P', region='춘천', function='관계 형성', function_secondary='', status_2026='운영중', age_known='Y',
-            age_min=19, age_max=64, residence_scope='지역전체', household_req='무관', income_req='없음', target_req='없음',
-            screening='없음', ch_online='N', ch_phone='N', ch_visit='Y', ch_app='N', ch_outreach='N',
-            device_req='없음', schedule='평일주간')
+BASE = dict(
+    id='P',
+    region='춘천',
+    function='관계 형성',
+    function_secondary='',
+    status_2026='운영중',
+    age_known='Y',
+    age_min=19,
+    age_max=64,
+    residence_scope='지역전체',
+    household_req='무관',
+    income_req='없음',
+    target_req='없음',
+    screening='없음',
+    ch_online='N',
+    ch_phone='N',
+    ch_visit='Y',
+    ch_app='N',
+    ch_outreach='N',
+    device_req='없음',
+    schedule='평일주간',
+)
 
 
 def prog(**kw):
@@ -48,7 +69,7 @@ def test_and_rule_conflict_only_blocks_that_path():
     progs = pd.DataFrame([prog(id='A', household_req='1인가구'), prog(id='B')])
     p = e.Persona(region='춘천', age=52, household='다인')
     rows, port = e.evaluate([p], progs, ['관계 형성'])
-    assert dict(zip(rows.id, rows.path)) == {'A': e.PATH_CONFLICT, 'B': e.PATH_OK}
+    assert dict(zip(rows.id, rows.path, strict=False)) == {'A': e.PATH_CONFLICT, 'B': e.PATH_OK}
     assert port.portfolio.iloc[0] == e.PORT_OK
 
 
@@ -158,8 +179,7 @@ def test_multiple_secondary_functions():
     assert port.portfolio.iloc[0] == e.PORT_OK
 
 
+@pytest.mark.skipif(not POLICY.exists(), reason='로컬 입력(data/) 없음')
 def test_every_target_in_final_table_is_declared():
-    import pathlib
-    f = pathlib.Path(__file__).resolve().parents[1] / 'data' / 'policy' / 'policy_programs_final.csv'
-    g = pd.read_csv(f, encoding='utf-8-sig', dtype=str)
+    g = e.load_programs()
     assert set(g.target_req.dropna()) - {'미확인'} <= set(e.TARGET_TYPE)

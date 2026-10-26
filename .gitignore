@@ -6,7 +6,6 @@
 *.tsbuildinfo
 __pycache__/
 .pytest_cache/
-.analysis-venv/
 .venv/
 .vercel/
 .DS_Store

@@ -6,22 +6,31 @@
 - notice: 공고에 운영 시간이 없어서 판정이 막힌 사업
 숫자는 가상 페르소나 수이며 실제 주민 수가 아님. 판정 기준은 엔진 그대로임.
 """
+
 from collections import Counter
 
 import pandas as pd
 
-import policy_gap_engine as e
-import run_persona_recommend as rr
-from dashboard_agent import persona_specs
-from run_policy_gap_analysis import scenarios
+from ieum import engine as e
+from ieum import recommend as rr
+from ieum.agent import persona_specs
+from ieum.engine import scenarios
 
 # 기존 H3 변환 이름 → 담당자가 할 일로 바꾼 말
-ACTIONS = {'S1 온라인·전화 신청 추가': '온라인·전화로도 신청받기', 'S2 저녁·주말 회차 추가': '저녁·주말 회차 열기',
-           'S3 1인가구 요건 완화': '1인가구 요건 풀기', 'S4 소득 요건 완화': '소득 요건 풀기',
-           'S5 64세 상한을 69세로': '나이 상한을 69세로 올리기'}
+ACTIONS = {
+    'S1 온라인·전화 신청 추가': '온라인·전화로도 신청받기',
+    'S2 저녁·주말 회차 추가': '저녁·주말 회차 열기',
+    'S3 1인가구 요건 완화': '1인가구 요건 풀기',
+    'S4 소득 요건 완화': '소득 요건 풀기',
+    'S5 64세 상한을 69세로': '나이 상한을 69세로 올리기',
+}
 BENCH = rr.OUT.parent / 'extra/벤치마크_형태차이.csv'
 # 다른 지역 사례의 제공 방식 글자로 서비스 방식을 맞춤
-MODE_WORDS = {'전화·온라인': ('전화', 'AI', '온라인', '비대면'), '나가서 만남': ('대면', '집단', '모임'), '집으로 찾아옴': ('방문', '가정', '집에서', '청소')}
+MODE_WORDS = {
+    '전화·온라인': ('전화', 'AI', '온라인', '비대면'),
+    '나가서 만남': ('대면', '집단', '모임'),
+    '집으로 찾아옴': ('방문', '가정', '집에서', '청소'),
+}
 
 
 def _people(ids, spec_by_id, kinds):
@@ -35,7 +44,7 @@ def build_policy(agent, sources):
     spec_by_id = {s[0]: s[-1] for s in specs}
     kinds = {s[0]: s[1] for s in specs}
     programs = rr.load_programs_with_area()
-    names = dict(zip(programs.id, programs.program))
+    names = dict(zip(programs.id, programs.program, strict=False))
     detail = {p['id']: p for p in agent['personas']}
     bench = pd.read_csv(BENCH)
     out = {}
@@ -67,11 +76,20 @@ def build_policy(agent, sources):
                 who = sorted({ids[i] for i, _ in hit.index})
                 funcs = sorted({f for _, f in hit.index})
                 pid = progs.loc[idx, 'id']
-                recs.append(dict(kind='condition', id=f'{region}-{pid}-{scen[:2]}', program_id=pid, program=names[pid],
-                                 action=ACTIONS[scen], functions=funcs,
-                                 title=f'{names[pid]} · {ACTIONS[scen]}',
-                                 why=f'{", ".join(funcs)} 분야에서 페르소나 {len(who)}명이 새로 갈 수 있어요',
-                                 source=(sources.get(pid) or [''])[0], **_people(who, spec_by_id, kinds)))
+                recs.append(
+                    dict(
+                        kind='condition',
+                        id=f'{region}-{pid}-{scen[:2]}',
+                        program_id=pid,
+                        program=names[pid],
+                        action=ACTIONS[scen],
+                        functions=funcs,
+                        title=f'{names[pid]} · {ACTIONS[scen]}',
+                        why=f'{", ".join(funcs)} 분야에서 페르소나 {len(who)}명이 새로 갈 수 있어요',
+                        source=(sources.get(pid) or [''])[0],
+                        **_people(who, spec_by_id, kinds),
+                    )
+                )
 
         # 2) 새 사업이 필요한 곳: 방식이 안 맞거나, 조건을 바꿔도 안 열리는 분야
         gaps = {}
@@ -87,31 +105,67 @@ def build_policy(agent, sources):
                 gaps.setdefault(key, []).append(pid)
         for (func, mode), who in gaps.items():
             mine = bench[bench.review_region == region]
-            ex = (mine[mine.channel_form.str.contains('|'.join(MODE_WORDS[mode])) | mine.time_form.str.contains('집에서')]
-                  if mode else mine[mine.function == func])
+            ex = (
+                mine[mine.channel_form.str.contains('|'.join(MODE_WORDS[mode])) | mine.time_form.str.contains('집에서')]
+                if mode
+                else mine[mine.function == func]
+            )
             if mode == '나가서 만남':
                 ex = ex[~ex.channel_form.str.contains('|'.join(MODE_WORDS['집으로 찾아옴'] + ('AI',)))]
-            recs.append(dict(kind='new', id=f'{region}-new-{func}-{mode}', function=func, mode=mode, functions=[func],
-                             title=f'「{mode}」 {func} 사업 만들기' if mode else f'{func} 사업 새로 만들기',
-                             why=(f'갈 수 있는 {func} 사업이 모두 다른 방식이라 맞는 곳이 없어요' if mode
-                                  else f'지금 조건으로는 갈 수 있는 {func} 사업이 없고, 조건을 바꿔도 열리지 않아요'),
-                             examples=[dict(region=r.region, program=r.program, form=r.channel_form, time=r.time_form,
-                                            url=r.source_url, checked=r.verification) for r in ex.itertuples()],
-                             **_people(who, spec_by_id, kinds)))
+            recs.append(
+                dict(
+                    kind='new',
+                    id=f'{region}-new-{func}-{mode}',
+                    function=func,
+                    mode=mode,
+                    functions=[func],
+                    title=f'「{mode}」 {func} 사업 만들기' if mode else f'{func} 사업 새로 만들기',
+                    why=(
+                        f'갈 수 있는 {func} 사업이 모두 다른 방식이라 맞는 곳이 없어요'
+                        if mode
+                        else f'지금 조건으로는 갈 수 있는 {func} 사업이 없고, 조건을 바꿔도 열리지 않아요'
+                    ),
+                    examples=[
+                        dict(
+                            region=r.region,
+                            program=r.program,
+                            form=r.channel_form,
+                            time=r.time_form,
+                            url=r.source_url,
+                            checked=r.verification,
+                        )
+                        for r in ex.itertuples()
+                    ],
+                    **_people(who, spec_by_id, kinds),
+                )
+            )
 
         # 3) 공고 보완: 운영 시간이 없어서 판정이 막힌 사업
         unk = rows[rows.path.eq(e.PATH_UNKNOWN) & rows.reason.str.contains('TIME_UNVERIFIED')]
         for pid, g in unk.groupby('id'):
             # 그 분야에서 아직 갈 곳이 없는 사람만 셈(다른 사업으로 이미 열린 사람은 공고가 바뀌어도 달라지지 않음)
-            who = sorted({ids[i] for i, fs in zip(g.persona, g.functions)
-                          if any(not before.get((i, f), True) for f in fs.split(';'))})
+            who = sorted(
+                {
+                    ids[i]
+                    for i, fs in zip(g.persona, g.functions, strict=False)
+                    if any(not before.get((i, f), True) for f in fs.split(';'))
+                }
+            )
             if not who:
                 continue
-            recs.append(dict(kind='notice', id=f'{region}-notice-{pid}', program_id=pid, program=names[pid],
-                             functions=sorted(set(';'.join(g.functions).split(';'))),
-                             title=f'{names[pid]} · 공고에 운영 시간 적기',
-                             why=f'운영 시간이 공고에 없어서, 평일 낮에 못 가는 페르소나 {len(who)}명이 갈 수 있는지 판단할 수 없어요',
-                             source=(sources.get(pid) or [''])[0], **_people(who, spec_by_id, kinds)))
+            recs.append(
+                dict(
+                    kind='notice',
+                    id=f'{region}-notice-{pid}',
+                    program_id=pid,
+                    program=names[pid],
+                    functions=sorted(set(';'.join(g.functions).split(';'))),
+                    title=f'{names[pid]} · 공고에 운영 시간 적기',
+                    why=f'운영 시간이 공고에 없어서, 평일 낮에 못 가는 페르소나 {len(who)}명이 갈 수 있는지 판단할 수 없어요',
+                    source=(sources.get(pid) or [''])[0],
+                    **_people(who, spec_by_id, kinds),
+                )
+            )
 
         # 4) 모집이 끝난 분야: 조건 문제가 아니라 회차가 없음
         ended = {}
@@ -120,8 +174,16 @@ def build_policy(agent, sources):
                 if fd['kind'] == 'closed':
                     ended.setdefault(fd['function'], []).append(pid)
         for func, who in ended.items():
-            recs.append(dict(kind='round', id=f'{region}-round-{func}', functions=[func], title=f'{func} 사업 · 다음 모집 열기',
-                             why=f'올해 모집이 끝나서 페르소나 {len(who)}명 모두 지금은 신청할 수 없어요', **_people(who, spec_by_id, kinds)))
+            recs.append(
+                dict(
+                    kind='round',
+                    id=f'{region}-round-{func}',
+                    functions=[func],
+                    title=f'{func} 사업 · 다음 모집 열기',
+                    why=f'올해 모집이 끝나서 페르소나 {len(who)}명 모두 지금은 신청할 수 없어요',
+                    **_people(who, spec_by_id, kinds),
+                )
+            )
 
         # 지역 페르소나 전원에게 해당하는 모집 종료는 추천이 아니라 안내로 따로 뺌(누구에게나 같은 말이라 변별력이 없음)
         ended = [r['functions'][0] for r in recs if r['kind'] == 'round' and r['count'] == len(ids)]

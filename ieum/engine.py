@@ -7,11 +7,14 @@ L3 포트폴리오: 같은 지원 기능의 사업들을 함께 보고, 그 주�
 정보가 없으면 UNKNOWN이다. 부적격도 적격도 아니다. 공백은 "이번 조사 범위에서 조건이 맞는 사업을 찾지 못함"이지
 "지원이 없다"가 아니다. 가상 주민은 조건 조합이며 실제 사람 수가 아니다.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import pandas as pd
+
+from ieum.paths import POLICY
 
 MET, CONFLICT, REVIEW, UNKNOWN, NA = 'MET', 'CONFLICT', 'REVIEW', 'UNKNOWN', 'N/A'
 FUNCTIONS = ['발굴·안부', '관계 형성', '상담', '돌봄', '일자리', '주거·안전', '의료 접근']
@@ -40,7 +43,7 @@ PORT_CONFLICT = '공백(조건 충돌)'
 PORT_NONE = '공백(해당 기능 사업 없음)'
 PORT_ORDER = [PORT_OK, PORT_SCREEN, PORT_INFO, PORT_OUTREACH, PORT_UNKNOWN, PORT_CONFLICT, PORT_NONE]
 PORT_OPEN = {PORT_OK, PORT_SCREEN, PORT_INFO}
-_P2P = dict(zip(PATH_ORDER, PORT_ORDER))
+_P2P = dict(zip(PATH_ORDER, PORT_ORDER, strict=False))
 
 # 접근 방식 묶음: 주민이 스스로 쓸 수 있는 신청 채널과 기기.
 ACCESS = {
@@ -53,13 +56,27 @@ ACCESS = {
 # 대상 특성의 종류. '심사'는 선정 과정에서 확인하는 특성(위험도·필요도), '속성'은 주민이 갖췄는지가 자격인 특성이다.
 # 가상 주민에게는 '속성'이 없으므로 확인 필요가 된다.
 TARGET_TYPE = {
-    '없음': '없음', '장애인': '장애인',
+    '없음': '없음',
+    '장애인': '장애인',
     # 주민이 갖췄는지가 자격인 속성(가상 주민에게 없음 → 확인 필요)
-    '대졸(예정) 청년': '속성', '주거취약(저층·반지하·옥탑)': '속성', '혼자 외출 어려움': '속성', '고립은둔·미취업': '속성',
+    '대졸(예정) 청년': '속성',
+    '주거취약(저층·반지하·옥탑)': '속성',
+    '혼자 외출 어려움': '속성',
+    '고립은둔·미취업': '속성',
     # 선정 과정에서 위험도·필요도로 확인하는 특성(→ 심사)
-    '고립위험': '심사', '고립은둔': '심사', '고독사위험': '심사', '우울위험': '심사', '우울·고립감': '심사',
-    '무연고·우울': '심사', '돌봄필요': '심사', '구직단념': '심사', '위기징후': '심사', '건강관리필요': '심사',
-    '고립은둔·가족돌봄': '심사', '관계망 형성 필요': '심사', '고위험': '심사',
+    '고립위험': '심사',
+    '고립은둔': '심사',
+    '고독사위험': '심사',
+    '우울위험': '심사',
+    '우울·고립감': '심사',
+    '무연고·우울': '심사',
+    '돌봄필요': '심사',
+    '구직단념': '심사',
+    '위기징후': '심사',
+    '건강관리필요': '심사',
+    '고립은둔·가족돌봄': '심사',
+    '관계망 형성 필요': '심사',
+    '고위험': '심사',
 }
 
 
@@ -68,12 +85,12 @@ class Persona:
     region: str
     age: int
     sex: str = '여'
-    household: str = '1인'      # 1인 / 다인
-    income: str = '일반'        # 저소득 / 일반
+    household: str = '1인'  # 1인 / 다인
+    income: str = '일반'  # 저소득 / 일반
     access: str = '일반(모든 채널 가능)'
     weekday_day_ok: bool = True  # 평일 낮에 참여할 수 있는가
     disabled: bool = False
-    dong: str = ''              # 사는 동. 비어 있으면 동·단지 한정 사업은 확인 필요(기존 판정과 같음)
+    dong: str = ''  # 사는 동. 비어 있으면 동·단지 한정 사업은 확인 필요(기존 판정과 같음)
 
     @property
     def channels(self):
@@ -116,8 +133,11 @@ def _household(p: Persona, g: dict) -> Check:
     if h == '독거노인(저소득 2인 예외)':
         if one:
             return Check('household', MET)
-        return Check('household', REVIEW if p.income == '저소득' else CONFLICT,
-                     'HOUSEHOLD_EXCEPTION' if p.income == '저소득' else 'HOUSEHOLD')
+        return Check(
+            'household',
+            REVIEW if p.income == '저소득' else CONFLICT,
+            'HOUSEHOLD_EXCEPTION' if p.income == '저소득' else 'HOUSEHOLD',
+        )
     if h == '여성1인가구':
         ok = one and p.sex == '여'
         return Check('household', MET if ok else CONFLICT, '' if ok else 'HOUSEHOLD')
@@ -170,7 +190,13 @@ def _device(p: Persona, g: dict) -> Check:
     d = _y(g['device_req'])
     a = ACCESS[p.access]
     # 전화 수신은 누구나 가능하다고 본다. 전화가 부담스러운 것은 선호이지 접근 실패가 아니다.
-    dev = {'없음': True, 'IoT장비': True, '전화수신': True, '스마트폰': a['smartphone'], '안드로이드': a['android']}.get(d)
+    dev = {
+        '없음': True,
+        'IoT장비': True,
+        '전화수신': True,
+        '스마트폰': a['smartphone'],
+        '안드로이드': a['android'],
+    }.get(d)
     if dev is None:
         return Check('device', UNKNOWN, 'DEVICE_UNVERIFIED')
     return Check('device', MET if dev else CONFLICT, '' if dev else 'DEVICE')
@@ -198,26 +224,37 @@ def _residence(p: Persona, g: dict, r: str) -> Check:
             return Check('residence', CONFLICT, 'OUTSIDE_AREA')
         return Check('residence', MET) if r == '동한정' else Check('residence', REVIEW, 'COMPLEX_ONLY')
     # 동·단지·배달 지역 한정은 가상 주민의 세부 주소가 없어 확인 필요로 둔다.
-    return Check('residence', UNKNOWN, 'SERVICE_AREA_UNVERIFIED' if r in ('동한정', '단지한정', '배달가능지역') else 'POLICY_FACT_MISSING')
+    return Check(
+        'residence',
+        UNKNOWN,
+        'SERVICE_AREA_UNVERIFIED' if r in ('동한정', '단지한정', '배달가능지역') else 'POLICY_FACT_MISSING',
+    )
 
 
 def l1(p: Persona, g: dict) -> list[Check]:
     """사업 g(조건 표의 한 행)를 주민 p에 대해 요건별로 판정한다."""
     s = _y(g['status_2026'])
     r = _y(g['residence_scope'])
-    i = _y(g['income_req'])
     sc = _y(g['screening'])
     return [
-        Check('status', {'운영중': MET, '종료': CONFLICT}.get(s, UNKNOWN),
-              {'종료': 'CLOSED', '모집종료': 'ROUND_UNVERIFIED', '미확인': 'STATUS_UNVERIFIED'}.get(s, '')),
-        Check('region', MET if g['region'] == p.region else CONFLICT, '' if g['region'] == p.region else 'OTHER_REGION'),
+        Check(
+            'status',
+            {'운영중': MET, '종료': CONFLICT}.get(s, UNKNOWN),
+            {'종료': 'CLOSED', '모집종료': 'ROUND_UNVERIFIED', '미확인': 'STATUS_UNVERIFIED'}.get(s, ''),
+        ),
+        Check(
+            'region', MET if g['region'] == p.region else CONFLICT, '' if g['region'] == p.region else 'OTHER_REGION'
+        ),
         _age(p, g),
         _residence(p, g, r),
         _household(p, g),
         _income(p, g),
         _target(p, g),
-        Check('screening', {'있음': REVIEW, '없음': MET}.get(sc, UNKNOWN),
-              {'있음': 'SCREENING', '없음': ''}.get(sc, 'SCREENING_UNVERIFIED')),
+        Check(
+            'screening',
+            {'있음': REVIEW, '없음': MET}.get(sc, UNKNOWN),
+            {'있음': 'SCREENING', '없음': ''}.get(sc, 'SCREENING_UNVERIFIED'),
+        ),
         _channel(p, g),
         _device(p, g),
         _time(p, g),
@@ -226,6 +263,7 @@ def l1(p: Persona, g: dict) -> list[Check]:
 
 def l2(checks: list[Check]) -> tuple[str, str]:
     """사업 하나의 경로 판정과 그 이유 코드."""
+
     def why(cs):
         return ';'.join(f'{c.item}:{c.code}' for c in cs)
 
@@ -275,16 +313,65 @@ def evaluate(personas: list[Persona], programs: pd.DataFrame, functions=FUNCTION
             ch = l1(p, g)
             state, why = l2(ch)
             cache[g['id']] = state
-            rows.append({'persona': pi, 'id': g['id'], 'function': g['function'],
-                         'functions': ';'.join(functions_of(g)), 'path': state, 'reason': why,
-                         **{f'l1_{c.item}': c.state for c in ch}})
+            rows.append(
+                {
+                    'persona': pi,
+                    'id': g['id'],
+                    'function': g['function'],
+                    'functions': ';'.join(functions_of(g)),
+                    'path': state,
+                    'reason': why,
+                    **{f'l1_{c.item}': c.state for c in ch},
+                }
+            )
         for f in functions:
             ids = [g['id'] for g in progs if g['region'] == p.region and has_function(g, f)]
             st = [cache[i] for i in ids]
-            port.append({'persona': pi, 'function': f, 'n_programs': len(ids),
-                         **{f'n_{k}': st.count(k) for k in PATH_ORDER},
-                         'portfolio': l3(st, len(ids)), 'is_open': l3(st, len(ids)) in PORT_OPEN,
-                         'open_ids': ','.join(i for i, s in zip(ids, st) if s in OPEN_PATHS)})
+            port.append(
+                {
+                    'persona': pi,
+                    'function': f,
+                    'n_programs': len(ids),
+                    **{f'n_{k}': st.count(k) for k in PATH_ORDER},
+                    'portfolio': l3(st, len(ids)),
+                    'is_open': l3(st, len(ids)) in PORT_OPEN,
+                    'open_ids': ','.join(i for i, s in zip(ids, st, strict=False) if s in OPEN_PATHS),
+                }
+            )
     pdf = pd.DataFrame([{'persona': i, **p.__dict__} for i, p in enumerate(personas)])
     rows = pd.DataFrame(rows, columns=None if rows else ['persona', 'id', 'function', 'functions', 'path', 'reason'])
     return rows.merge(pdf, on='persona'), pd.DataFrame(port).merge(pdf, on='persona')
+
+
+def load_programs() -> pd.DataFrame:
+    g = pd.read_csv(POLICY / 'policy_programs_final.csv', encoding='utf-8-sig', dtype=str)
+    for c in ('age_min', 'age_max'):
+        g[c] = pd.to_numeric(g[c], errors='coerce')
+    return g
+
+
+def scenarios(g: pd.DataFrame) -> dict[str, pd.DataFrame]:
+    s = {}
+    self_apply = g[['ch_online', 'ch_phone', 'ch_visit', 'ch_app']].isin(['Y', '미확인']).any(axis=1)
+    a = g.copy()
+    a.loc[self_apply, ['ch_online', 'ch_phone']] = 'Y'  # 신청형 사업에만 추가(발굴형은 신청 채널이 없으므로 그대로)
+    s['S1 온라인·전화 신청 추가'] = a
+    a = g.copy()
+    a.loc[a.schedule == '평일주간', 'schedule'] = '야간·주말포함'
+    s['S2 저녁·주말 회차 추가'] = a
+    a = g.copy()
+    a.loc[a.household_req.isin(['1인가구', '1인가구(다인 예외심사)']), 'household_req'] = '무관'
+    # 독거노인 요건은 가구만 풀고 나이 조건은 그대로 둔다(나이 미확인 사업에 나이를 채워 넣지 않는다).
+    a.loc[a.household_req.isin(['독거노인', '독거노인(저소득 2인 예외)']), 'household_req'] = '무관'
+    s['S3 1인가구 요건 완화'] = a
+    a = g.copy()
+    a.loc[a.income_req == '저소득필수', 'income_req'] = '우선순위'
+    s['S4 소득 요건 완화'] = a
+    a = g.copy()
+    a.loc[a.age_max == 64, 'age_max'] = 69
+    s['S5 64세 상한을 69세로'] = a
+    a = g.copy()
+    a.loc[a.age_known != 'Y', 'age_known'] = 'Y'  # 나이를 '누구나'로 공개했다고 가정
+    a.loc[a.income_req == '미확인', 'income_req'] = '없음'
+    s['S6 나이·소득 미확인 사업이 제한 없음으로 공개'] = a
+    return s
