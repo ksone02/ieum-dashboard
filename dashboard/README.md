@@ -1,8 +1,8 @@
 # dashboard
 
-이음 화면. 설명은 [최상위 README](../README.md)에 있다.
+이음 화면이에요. 전체 설명은 [최상위 README](../README.md)에 있어요.
 
-`public/data/`의 JSON 세 개(`agent.json`, `personas.json`, `policy.json`)만 읽는다. 이 파일은 `python -m ieum.export`가 만든다.
+화면은 `public/data/`의 JSON 세 개(`agent.json`, `personas.json`, `policy.json`)만 읽어요. 이 파일은 `python -m ieum.export`가 만들어요.
 
 | 파일                         | 하는 일            |
 | ---------------------------- | ------------------ |
